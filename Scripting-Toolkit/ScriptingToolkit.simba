@@ -3,7 +3,6 @@ program ScriptingToolkit;
 {$i srl-6/srl.simba}
 {$i sps/lib/sps-rs3.simba}
 {$i srl-6/lib/misc/srlplayerform.simba}
-//{$i srl-6/lib/misc/antiban.simba}    will eventually enable. have yet to properly setup antiban
 //{$i srl-6/lib/misc/srlstats.simba}   enable if you want SRL stats
 
 const
@@ -57,8 +56,7 @@ end;
 
 procedure declarePlayers();
 begin
-  players.setup(playerForm.players);
-  currentPlayer := 0;
+  //declare player code here
 end;
 
 procedure loginPlayer();
@@ -74,7 +72,20 @@ end;
 
 procedure antiBan();
 begin
-  //antiban code here
+  if not isLoggedin() then exit;
+
+  case random(100) of
+  0..2:BoredHuman(True);
+  3..4:hoverSkill(SKILL_DUNGEONEERING);
+  5..6:hoverRandomSkill();
+  7..8:mouseOffClient(OFF_CLIENT_RANDOM, randomRange(3000, 8000));
+  9..10:sleepAndMoveMouse(1500 + random(1500));
+  end;
+end;
+
+procedure mainLoop();
+begin
+  //the actual script goes here
 end;
 
 begin

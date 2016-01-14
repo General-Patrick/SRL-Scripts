@@ -5,14 +5,14 @@ program ScriptingToolkit;
 {$i srl-6/lib/misc/srlplayerform.simba}
 
 const
-  Version = 0.0;
+  Version = 1.0;
 
 procedure getUpdate();
 var
   newFile: Integer;
   newVer: Extended;
 begin
-  newVer := strToFloat(getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/SRLTest/SRLScripts/master/SemtexFishingGuild/version.txt'));
+  newVer := strToFloat(getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/General-Patrick/SRL-Scripts/master/Scripting-Toolkit/%20version.txt'));
   printf('Current script Version: %f || Online script Version: %f', [Version, newVer]);
 
   if newVer > Version then
@@ -49,7 +49,7 @@ end;
 begin
   clearDebug();
   disableSRLLog := True;
-  //getUpdate();
+  getUpdate();
   initPlayerForm();
   runPlayerForm();
   if not playerForm.isScriptReady then exit();

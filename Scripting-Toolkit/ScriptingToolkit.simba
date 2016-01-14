@@ -19,7 +19,7 @@ begin
   begin
     printf('Updating (Script Name Here).simba from Version %f to %f', [Version, newVer]);
     newFile := rewriteFile(scriptPath + 'ScriptingToolkit.simba', false);
-    writeFileString(newFile, getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/SRLTest/SRLScripts/master/SemtexFishingGuild.simba'));
+    writeFileString(newFile, getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/General-Patrick/SRL-Scripts/master/Scripting-Toolkit/ScriptingToolkit.simba'));
     closeFile(newFile);
     print('Please reopen this file');
     terminateScript();

@@ -38,46 +38,72 @@ begin                                                              //this only t
 end;
 
 procedure initPlayerForm();
-begin                             //if you want to link  back to the forum post concerning the script, change the https url below.
-  playerForm.scriptHelpThread := 'https://villavu.com/forum/showthread.php?t=115400';
-  playerForm.name := 'Scripting Toolkit';     // here you can change the name of your script in the playerform
-  playerForm.editBoxLabels := ['Break after', 'Break for']; //Here is where you can change the name of the items in the script
-  playerForm.editBoxDefaults := ['60', '5'];    //here you can set the default values of the boxes
-  playerForm.editBoxHints := ['How long do you want to bot before a break?', 'How long do you want to break?'];    //here you can add a description of the box
+begin
+  with playerForm do //allows you to not have to write playerForm.(insert command here). Eg: you can simply name instead of playerForm.name.
+  begin
 
-  {Below are additional boxes if you need them for your script. Remove curly brackets to enable.
+  scriptHelpThread := 'https://villavu.com/forum/showthread.php?t=115400'; //if you want to link  back to the forum post concerning the script, change the https url.
+  name := 'Scripting Toolkit v' +toStr(Version);     // here you can change the name of your script in the playerform
 
-  playerForm.editBoxLabels := ['', ''];
-  playerForm.editBoxDefaults := ['', ''];
-  playerForm.editBoxHints := ['', ''];
+  editBoxLabels := ['Break after', 'Break for', 'World', 'Bank Pin']; //Here is where you can change the name of the items in the script
+  editBoxDefaults := ['60', '5', '-1', '0000'];    //here you can set the default values of the boxes
+  editBoxHints := ['How long do you want to bot before a break?', 'How long do you want to break?', 'which world do you want to login to?', 'What is your Bank Pin?'];    //here you can add a description of the box
+
+  comboBoxLabels := ['Bank Preset'];
+  comboBoxDefaults := ['1'];
+  playerForm.comboBoxHints := ['Which preset do you want to use?'];
+
+  setLength(comboBoxItems, length(comboBoxLabels));
+  playerForm.comboBoxItems[0] := ['1', '2'];
+
+  {
+  comboBoxItems[1] := ['1', '2'];    //another one
+  comboBoxItems[2] := ['1', '2'];    //and another one
   }
 
+ end;
 end;
 
 procedure declarePlayers();
+var
+  i, botLength, breakLength, world, bankNum: integer;
+  bankPreset: string;
 begin
-  //declare player code here
+  players.setup(playerForm.players);
+  currentPlayer := 0;
+
+  for i := 0 to high(players) do
+    with players[i] do
+    begin
+      botLength := strToInt(playerForm.players[i].settings[0]); //bot length before breaking
+      breakLength := strToInt(playerForm.players[i].settings[1]); //break duration
+      world := strToInt(playerForm.players[i].settings[2]); //preferred world
+      bankNum := strToInt(playerForm.players[i].settings[3]); //your bank pin
+      bankPreset := playerForm.players[i].settings[4]; //bank preset
+  end;
 end;
 
 procedure loginPlayer();
 begin
-  players[currentPlayer].login();
-  wait(randomRange(3000, 7000));
-  minimap.clickCompass();
-  mainscreen.setAngle(MS_ANGLE_HIGH);
-  exitTreasure();
-  closePopup();
-  mainScreen.setZoom(true);
-end;
+  players[currentPlayer].login();          //login the selected player
+  minimap.clickCompass();                  //click on the compass
+  wait(randomRange(4000, 6000));           //lets runescape load properly
+  mainscreen.setAngle(MS_ANGLE_HIGH);      //puts the perspective at highest angle
+  exitTreasure();                          //closes the daily treasure chest
+  closePopup();                            //close any popups
+  mainScreen.setZoom(true);                //allow zooming
+  conversationBox.continue(True, True);    //optional, but useful if in a role-play world
+  end;
 
 procedure antiBan();
 begin
   if not isLoggedin() then exit;
 
   case random(100) of
+  case random(100) of //change the number to affect how frequent you want antiban to occr. 100 is recommended.
   0..2:BoredHuman(True);
-  3..4:hoverSkill(SKILL_DUNGEONEERING);
-  5..6:hoverRandomSkill();
+  3..4:hoverSkill(SKILL_DUNGEONEERING);                                 //these are the antibans actions. you can change how frequent you
+  5..6:hoverRandomSkill();                                              //want one function to occur
   7..8:mouseOffClient(OFF_CLIENT_RANDOM, randomRange(3000, 8000));
   9..10:sleepAndMoveMouse(1500 + random(1500));
   end;
@@ -90,13 +116,19 @@ end;
 
 begin
   clearDebug();
-  disableSRLLog := True;
+  disableSRLLog := True;   //set to false if you want to debug
+  smartShowConsole := false; //this is the black cmd box that open when you start SMART
+  SmartEnableDrawing := True; //allow you to put proggies and stuff
   getUpdate();
   //SetupSRLStats(SRLStats_ID, SRLStats_Username, SRLStats_Password); //this is for the SRL Stats function
-  initPlayerForm();
-  runPlayerForm();
-  if not playerForm.isScriptReady then exit();
-  declarePlayers();
+  initPlayerForm(); //opens the player form
+  runPlayerForm();  //starts the player form
 
+  if not playerForm.isScriptReady then exit();
+
+
+  declarePlayers();
+  setupSRL();
   if not isLoggedIn() then loginPlayer();
+  mainLoop();
 end.

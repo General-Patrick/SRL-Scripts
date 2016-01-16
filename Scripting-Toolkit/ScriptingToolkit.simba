@@ -3,21 +3,17 @@ program ScriptingToolkit;
 {$i srl-6/srl.simba}
 {$i sps/lib/sps-rs3.simba}
 {$i srl-6/lib/misc/srlplayerform.simba}
-//{$i srl-6/lib/misc/srlstats.simba}   enable if you want SRL stats
+
+//to do list : SPS mapping, adding color stuff,  fancy paint starter kit
+
+var
+  i, bankNum, bankPre: integer;
+
 
 const
   Version = 1.0;          //the version of this script. keep for the getUpdate procedure.
   itemName1 = 'Rune_bar'; //to get the correct name, go to http://runescape.wikia.com/wiki/Special:AllPages?namespace=112 and search your item. the correct item name should be on the URL.
   itemName2 = 'Rune_bar';
-
-  {
-  This section is for SRL Stats. If you want this disables, do not change anything. If you want to enable it,
-  uncomment this section & line 84 input the information below.
-
-  SRLStats_Username = 'Username you signed up with';
-  SRLStats_Password = 'Password';
-  SRLStats_ID = 'Input your Script ID here';
-  }
 
 procedure getUpdate();   //credit goes to @GetHyper for his code and awesome guide!
 var
@@ -72,8 +68,7 @@ end;
 
 procedure declarePlayers();
 var
-  i, botLength, breakLength, world, bankNum: integer;
-  bankPre: string;
+  botLength, breakLength, world: integer;
   debugLog: boolean;
 begin
   players.setup(playerForm.players);
@@ -83,16 +78,14 @@ begin
     with players[i] do
     begin
 
-      isActive  := True;  //Leave true
-
       botLength := strToInt(playerForm.players[i].settings[0]); //bot length before breaking
       breakLength := strToInt(playerForm.players[i].settings[1]); //break duration
       world := strToInt(playerForm.players[i].settings[2]); //preferred world
       bankNum := strToInt(playerForm.players[i].settings[3]); //your bank pin
 
-      debugLog := strToBool(playerForm.players[i].settings[3]); //debug Log
+      debugLog := strToBool(playerForm.players[i].settings[4]); //debug Log
 
-      bankPre := playerForm.players[i].settings[5]; //bank preset
+      bankPre := strToInt(playerForm.players[i].settings[5]); //bank preset
   end;
 end;
 
@@ -106,7 +99,7 @@ begin
   closePopup();                            //close any popups
   mainScreen.setZoom(true);                //allow zooming
   conversationBox.continue(True, True);    //optional, but useful if in a role-play world
-  end;
+end;
 
 procedure itemPrice();
 var
@@ -116,30 +109,84 @@ begin
 
   itemPrice1 := replace(itemPrice1, ',', '', [rfReplaceAll]);
   itemPage1 := getPage('http://runescape.wikia.com/wiki/Exchange:' + itemName1 );    // Page for first item
-
   itemPrice1 := between('GEPrice">', '</span>', itemPage1);
   itemPrice1 := replace(itemPrice1, ',', '', [rfReplaceAll]);
   price1:= strToIntDef(itemPrice1, 0);                                             // GE Price for first item
 
   itemPrice2 := replace(itemPrice2, ',', '', [rfReplaceAll]);
   itemPage2 := getPage('http://runescape.wikia.com/wiki/Exchange:' + itemName2 );    // Page for second item
-
-  itemPrice2 := between('GEPrice">', '</span>', itemPage1);
+  itemPrice2 := between('GEPrice">', '</span>', itemPage2);
   itemPrice2 := replace(itemPrice2, ',', '', [rfReplaceAll]);
   price2:= strToIntDef(itemPrice2, 0);                                             // GE Price for second item
 
   profit := (price2 - price1); // Net Profit
-
 end;
 
-procedure antiBan();   //personally think this is a little to basic. Will eventually make it more "interesting."
+procedure colorSetup();
+begin
+  //the color stuff
+end;
+
+procedure spsMapping():
+begin
+  //input sps map here
+end;
+
+procedure debugProggy();
+begin
+    //input debugProggy here
+end;
+
+procedure fancyProggy();
+begin
+  //input fancyProggy here
+end;
+
+procedure useBank(thePreset: Integer);    //i totally didn't take this from the majestic Taric :p
+begin
+  if not isLoggedIn() then exit;
+
+  bankScreen.open(BANK_CHEST_LUMBRIDGE);
+
+  repeat
+  wait(100);
+  until minimap.isFlagPresent = false;
+
+  wait(randomRange(1400,1600));
+
+    if not bankScreen.isOpen() then
+      begin
+        bankScreen.open(BANK_CHEST_LUMBRIDGE);
+
+        repeat
+        wait(100);
+        until minimap.isFlagPresent = false;
+
+        wait(randomRange(1400,1600));
+
+        if not bankScreen.isOpen() then
+          begin
+            useBank(bankPre);
+            exit;
+          end;
+      end;
+
+  if pinScreen.isOpen() then pinScreen.enter(intToStr(bankNum));
+
+  case thePreset of
+    1:bankScreen.clickButton(BANK_BUTTON_PRESET_1);
+    2:bankScreen.clickButton(BANK_BUTTON_PRESET_2);
+  end;
+end;
+
+procedure antiBan();   //personally think this is a little to basic.Eventually, I'll make it more "interesting."
 begin
   if not isLoggedin() then exit;
 
   case random(200) of //change the number to affect how frequent you want antiban to occr. 200 is recommended.
   0..2:BoredHuman(True);
   3..4:hoverSkill(SKILL_DUNGEONEERING);                                 //these are the antibans actions. you can change how frequent you
-  5..6:hoverRandomSkill();                                              //want one function to occur
+  5..6:hoverRandomSkill();                                              //want one function to occur.
   7..8:mouseOffClient(OFF_CLIENT_RANDOM, randomRange(3000, 8000));
   9..10:sleepAndMoveMouse(1500 + random(1500));
   end;
@@ -148,7 +195,8 @@ end;
 procedure mainLoop();
 begin
   if not isLoggedIn() then loginPlayer();
-
+  useBank(bankPre);
+  bankScreen.close();
 end;
 
 begin
@@ -157,7 +205,6 @@ begin
   smartShowConsole := false; //this is the black cmd box that open when you start SMART
   SmartEnableDrawing := True; //allow you to put proggies and stuff
   getUpdate();
-  //SetupSRLStats(SRLStats_ID, SRLStats_Username, SRLStats_Password); //this is for the SRL Stats function
   initPlayerForm(); //opens the player form
   runPlayerForm();  //starts the player form
 

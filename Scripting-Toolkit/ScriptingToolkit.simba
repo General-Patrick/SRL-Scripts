@@ -7,7 +7,10 @@ program ScriptingToolkit;
 //to do list : SPS mapping, adding color stuff,  fancy paint starter kit
 
 var
-  i, bankNum, bankPre: integer;
+  //(insert boolean stuff): boolean;
+  startXP, GP, XP, itemcount, GPH, XPH, itemH, profitH: extended;
+  i, bankNum, bankPre, profit: integer;
+  //(insert string stuff): string;
 
 
 const
@@ -15,7 +18,45 @@ const
   itemName1 = 'Rune_bar'; //to get the correct name, go to http://runescape.wikia.com/wiki/Special:AllPages?namespace=112 and search your item. the correct item name should be on the URL.
   itemName2 = 'Rune_bar';
 
-procedure getUpdate();   //credit goes to @GetHyper for his code and awesome guide!
+function TRSChatBox.getXP: Integer;     //credit goes to Ashman88 for his getXP function :)
+var
+  b: TBox;
+  s: String;
+  tpa : TPointArray;
+  atpa : T2DPointArray;
+  i,cts,p,p2: Integer;
+begin
+  result := -1;
+
+  b := [self.x2 - 199, self.y1 + 10, self.x2, self.y2 - 92];
+
+  findColorsTolerance(tpa, 14013909, b, 4, colorSetting(2, 0.00, 0.00));
+
+  if length(tpa) < 2 then
+  begin
+    print('chatBox.getXP(): No XP found', TDebug.SUB);
+    exit;
+  end;
+
+  atpa := tpa.cluster(10);
+  atpa.sortBySize;
+
+  b := atpa[low(atpa)].getbounds;
+  b.edit(-2,-2,+2,+3);
+
+  s := Replace(tesseractgettext(b.x1,b.y1,b.x2,b.y2, FILTER_SMALL_CHARS_2), ' ', '', [rfReplaceAll]);
+
+  P := Pos('x', S);
+  P2 := Pos('X', S);
+  if (P > 0) Or (P2 > 0) then
+    Result := StrToIntDef(ExtractFromStr(Copy(s, P, Length(S)), Numbers), 0)
+  else
+    Result := StrToIntDef(ExtractFromStr(S, Numbers), 0);
+
+  print('chatBox.getXP(): XP found: ' + tostr(result), TDebug.SUB);
+end;
+
+procedure getUpdate();   //credit goes to GetHyper for his code and awesome guide!
 var
   newFile: Integer;
   newVer: Extended;
@@ -122,19 +163,43 @@ begin
   profit := (price2 - price1); // Net Profit
 end;
 
+procedure setDTMs
+begin
+    //set the DTMs here
+end;
+
+procedure clearDTMs;
+begin
+    //clear the DTMs here.
+end;
+
 procedure colorSetup();
 begin
   //the color stuff
 end;
 
-procedure spsMapping():
+procedure getMap();
 begin
-  //input sps map here
+  //input sps mapping code here.
 end;
 
-procedure debugProggy();
+procedure debugProggy();  //inspired by and altered progress reports from Ashman and Mayor
 begin
-    //input debugProggy here
+    ClearDebug;
+
+    XP := (ChatBox.GetXP - Round(startXP));
+    XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));
+    itemCount := Round((itemCount * (3600.0 / (GetTimeRunning / 1000.0))));
+    profitH := Round(profit * (3600.0 / (GetTimeRunning / 1000.0)));
+
+    writeLn('|=========================================|');
+    writeLn(PadR('|        General Patrick''s Scripting Toolkit v' + toStr(Version), 10) + '|');
+    writeLn(PadR('| Time Running: ' + timeRunning, 10) + '|');
+    writeln(PadR('| Exp Earned: ' + GroupDigits(XP,','), 10));
+    writeln(PadR('| Exp/hr: ' + GroupDigits(XPH,','), 10));
+    writeln(PadR('| Profit Earned: ' + GroupDigits(profit,','), 10));
+    writeln(PadR('| Profit/hr Earned: ' + GroupDigits(profitH,','), 10));
+    writeLn('|=========================================|');
 end;
 
 procedure fancyProggy();

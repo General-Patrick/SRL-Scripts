@@ -99,7 +99,6 @@ procedure antiBan();
 begin
   if not isLoggedin() then exit;
 
-  case random(100) of
   case random(100) of //change the number to affect how frequent you want antiban to occr. 100 is recommended.
   0..2:BoredHuman(True);
   3..4:hoverSkill(SKILL_DUNGEONEERING);                                 //these are the antibans actions. you can change how frequent you

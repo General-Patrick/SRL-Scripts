@@ -1,1 +1,303 @@
+program ScriptingToolkit;
+{$DEFINE SMART}
+{$i srl-6/srl.simba}
+{$i sps/lib/sps-rs3.simba}
+{$i srl-6/lib/misc/srlplayerform.simba}
 
+//to do list : color Setup, progress report, DTMs, more antiban
+
+var
+  {*Declare Players*}
+  i, bankNum, bankPre: integer;
+
+  {*Progress Report*}
+  profit: integer;
+  itemCount, startXP, GP, XP, GPH, XPH, itemH, profitH: extended;
+
+  {*Antiban*}
+  x, y: integer;
+
+
+  {*DTMs*}
+  itemDTM: integer;
+
+  {*SPS Mapping*}
+  pathWalk: TPointArray;
+  place: integer;
+
+
+const
+  Version = 1.0;          //the version of this script. keep for the getUpdate procedure.
+
+function TRSChatBox.getXP: Integer;     //credit goes to Ashman88 for his getXP function :)
+var
+  b: TBox;
+  s: String;
+  tpa : TPointArray;
+  atpa : T2DPointArray;
+  i,cts,p,p2: Integer;
+begin
+  result := -1;
+
+  b := [self.x2 - 199, self.y1 + 10, self.x2, self.y2 - 92];
+
+  findColorsTolerance(tpa, 14013909, b, 4, colorSetting(2, 0.00, 0.00));
+
+  if length(tpa) < 2 then
+  begin
+    print('chatBox.getXP(): No XP found', TDebug.SUB);
+    exit;
+  end;
+
+  atpa := tpa.cluster(10);
+  atpa.sortBySize;
+
+  b := atpa[low(atpa)].getbounds;
+  b.edit(-2,-2,+2,+3);
+
+  s := Replace(tesseractgettext(b.x1,b.y1,b.x2,b.y2, FILTER_SMALL_CHARS_2), ' ', '', [rfReplaceAll]);
+
+  P := Pos('x', S);
+  P2 := Pos('X', S);
+  if (P > 0) Or (P2 > 0) then
+    Result := StrToIntDef(ExtractFromStr(Copy(s, P, Length(S)), Numbers), 0)
+  else
+    Result := StrToIntDef(ExtractFromStr(S, Numbers), 0);
+
+  print('chatBox.getXP(): XP found: ' + tostr(result), TDebug.SUB);
+end;
+
+function getPrice(theItem:string):integer; //thank The Mayor for this awesome function :)
+var
+  thePage, thePrice:string;                 //when calling the function, it should look like this
+  t:TTimeMarker;                            //getPrice('Rune_bar');
+begin
+  t.start();
+  thePage := getPage('http://runescape.wikia.com/wiki/Exchange:' + theItem);
+  thePrice := between('GEPrice">', '</span>', thePage);
+  thePrice := replace(thePrice, ',', '', [rfReplaceAll]);
+  result := strToIntDef(thePrice, 0);
+  t.pause();
+  theItem := replace(theItem, '_', ' ', [rfReplaceAll]);
+end;
+
+procedure getUpdate();   //credit goes to GetHyper for his code and awesome guide!
+var
+  newFile: Integer;
+  newVer: Extended;
+begin                                                              //this only thing you would change this the url below starting from https
+  newVer := strToFloat(getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/General-Patrick/SRL-Scripts/master/General-Draynor-Fisher/version.txt'));
+  printf('Current script Version: %f || Online script Version: %f', [Version, newVer]);
+
+  if newVer > Version then
+  begin
+    printf('Updating (Script Name Here).simba from Version %f to %f', [Version, newVer]);
+    newFile := rewriteFile(scriptPath + 'ScriptingToolkit v' + toStr(newVer) + '.simba', false);
+                                         //change the name here. I recommend you keep the v      //this only thing you would change this the url below starting from https
+    writeFileString(newFile, getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/General-Patrick/SRL-Scripts/master/General-Draynor-Fisher/GeneralDraynorFisher.simba'));
+    closeFile(newFile);
+    print('Please reopen this file');
+    terminateScript();
+  end;
+end;
+
+procedure initPlayerForm();
+begin
+  with playerForm do //allows you to not have to write playerForm.(insert command here). Eg: you can simply name instead of playerForm.name.
+  begin
+
+  scriptHelpThread := 'https://villavu.com/forum/showthread.php?t=115400'; //if you want to link  back to the forum post concerning the script, change the https url.
+  name := 'Scripting Toolkit v' +toStr(Version);     // here you can change the name of your script in the playerform
+
+  editBoxLabels := ['Break after', 'Break for', 'World', 'Bank Pin']; //Here is where you can change the name of the items in the script
+  editBoxDefaults := ['60', '5', '-1', '0000'];    //here you can set the default values of the boxes
+  editBoxHints := ['How long do you want to bot before a break?', 'How long do you want to break?', 'which world do you want to login to?', 'What is your Bank Pin?'];    //here you can add a description of the box
+
+  checkBoxLabels := ['Save SRL Log', 'Logout when JMod is nearby']; //the labels for your check mark boxes
+  checkBoxDefaults := ['True', 'True'];       //the default setting of the check mark box
+  checkBoxHints := ['Do you want to save SRL debug to a log file (recommended)?', 'Do you want to logout when a JMod is nearby?'];  //the info about the box
+
+  comboBoxLabels := ['Bank Preset'];
+  comboBoxDefaults := ['1'];
+  playerForm.comboBoxHints := ['Which preset do you want to use?'];
+
+  setLength(comboBoxItems, length(comboBoxLabels));
+  playerForm.comboBoxItems[0] := ['1', '2'];
+
+  {
+  comboBoxItems[1] := ['a', 'b'];    //another one
+  comboBoxItems[2] := ['c', 'd'];    //and another one
+  }
+
+ end;
+end;
+
+procedure declarePlayers();
+var
+  botLength, breakLength, world: integer;
+  debugLog: boolean;
+begin
+  players.setup(playerForm.players);
+  currentPlayer := 0;
+
+  for i := 0 to high(players) do
+    with players[i] do
+    begin
+
+      botLength := strToInt(playerForm.players[i].settings[0]); //bot length before breaking
+      breakLength := strToInt(playerForm.players[i].settings[1]); //break duration
+      world := strToInt(playerForm.players[i].settings[2]); //preferred world
+      bankNum := strToInt(playerForm.players[i].settings[3]); //your bank pin
+
+      debugLog := strToBool(playerForm.players[i].settings[4]); //debug Log
+      findMod := strToBool(playerForm.players[i].settings[5]); //find mods
+
+      bankPre := strToInt(playerForm.players[i].settings[6]); //bank preset
+  end;
+end;
+
+procedure loginPlayer();
+begin
+  players[currentPlayer].login();          //login the selected player
+  minimap.clickCompass();                  //click on the compass
+  wait(randomRange(4000, 6000));           //lets runescape load properly
+  mainscreen.setAngle(MS_ANGLE_HIGH);      //puts the perspective at highest angle
+  exitTreasure();                          //closes the daily treasure chest
+  closePopup();                            //close any popups
+  mainScreen.setZoom(true);                //allow zooming
+  startXP := chatBox.getXP;
+  players[currentPlayer].FindMod := False;
+  conversationBox.continue(True, True);    //optional, but useful if in a role-play world
+end;
+
+procedure loadDTMs();
+var
+  shrimpDTM, AnchoviesDTM: integer;
+
+begin
+  shrimpDTM := DTMFromString('insert shrimp DTM here');
+  AnchoviesDTM := DTMFromString('insert anchovies DTM here');
+end;
+
+procedure clearDTMs;
+begin
+    //freeDTM(shrimpDTM);
+    //freeDTM(AnchoviesDTM);
+end;
+
+procedure walkToPlace(place: Integer);
+begin
+
+  case place of
+    1:
+    begin
+      pathWalk := [Point(170, 118), Point(150, 178)]; //Walk to Fishing Spot
+
+      mouse(100, 100, 5, 5);
+    end;
+    2:
+    begin
+      pathWalk := [Point(150, 178), Point(170, 118)]; //Walk to Bank
+      mouse(100, 100, 5, 5);
+    end;
+  end;
+
+  SPS.walkPath(pathWalk);
+  minimap.waitPlayerMoving();
+  wait(randomRange(800,1000));
+end;
+
+procedure colorSetup();
+begin
+  //the color stuff
+end;
+
+procedure getMap();   //this procedure checks to see if you have the map downloaded and placed in the correct folder.
+var                   //If not, it automatically downloads it for you :)
+  mapFile: LongInt;
+begin
+  if fileExists(appPath + 'Includes/SPS/img/runescape_other/General_Draynor_SPS_00.png') then exit(); //checks to see if the file exists in the specified folder location
+  closeFile(createFile(appPath + 'Includes/SPS/img/runescape_other/General_Draynor_SPS_00.png'));  //creates the file in the chosen location
+  mapFile := reWriteFile(appPath + 'Includes/SPS/img/runescape_other/General_Draynor_SPS_00.png', false);   //renames the file to your chosen name
+  writeFileString(mapFile, getPage('http://i.imgur.com/yzeIdbQ.png')); //downloads the map file using the given URL
+  closeFile(mapFile);
+end;
+
+procedure progressReport();  //inspired by and altered progress reports from Ashman88 and The Mayor
+begin
+    ClearDebug;
+
+    XP := (ChatBox.GetXP - Round(startXP));   //need to fix this up.
+    XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));    //need to fix this up.
+    itemCount := Round((itemCount * (3600.0 / (GetTimeRunning / 1000.0))));
+    //profit := getPrice( {Insert Item name here(must be formatted from the rswiki)} );
+    profitH := Round(profit * (3600.0 / (GetTimeRunning / 1000.0)));
+
+    writeLn('|==========================================|');
+    writeLn(PadR('|  General Patrick''s Scripting Toolkit v' + toStr(Version), 10) + '  |');   //change this to your script's name
+    writeLn(PadR('| Time Running: ' + timeRunning, 10) + '    |');  //time running.
+    writeln(PadR('| Exp Earned: ' + GroupDigits(XP,','), 10) + '                            |'); //the amount of experience earned
+    writeln(PadR('| Exp/hr: ' + GroupDigits(XPH,','), 10) + '                                |'); //the amount of experience earned per hour
+    writeln(PadR('| Profit Earned: ' + GroupDigits(profit,','), 10) + '                         |');  //profit. self-explainotry :)
+    writeln(PadR('| Profit/hr: ' + GroupDigits(profitH,','), 10) + '                             |'); //profit per hour
+    writeLn('|==========================================|');
+end;
+
+procedure useBank(thePreset: Integer);
+begin
+  if not isLoggedIn() then exit;
+
+  bankScreen.open(BANK_NPC_DRAYNOR);
+  wait(gaussRangeInt(1200, 1800));
+  useBank(bankPre)
+
+  if pinScreen.isOpen() then pinScreen.enter(intToStr(bankNum));
+
+  case thePreset of
+    1:bankScreen.clickButton(BANK_BUTTON_PRESET_1);
+    2:bankScreen.clickButton(BANK_BUTTON_PRESET_2);
+  end;
+end;
+
+procedure antiBan();   //personally think this is a little to basic.Eventually, I'll make it more "interesting."
+begin
+  if not isLoggedin() then exit;
+
+  case random(200) of //change the number to affect how frequent you want antiban to occr. 200 is recommended (5% change of antiban).
+  0..2:BoredHuman(True);
+  3..4:hoverSkill(SKILL_FISHING);                                       //these are the antibans actions. you can change how frequent you
+  5..6:hoverRandomSkill();                                              //want one function to occur.
+  7..8:mouseOffClient(OFF_CLIENT_RANDOM, randomRange(3000, 8000));
+  9..10:sleepAndMoveMouse(1500 + random(1500));
+  end;
+end;
+
+procedure mainLoop();
+begin
+  if not isLoggedIn() then loginPlayer();
+  progressReport();
+  walkToPlace(1);
+  wait(randomRange(600,800));
+  walkToPlace(2);
+  wait(randomRange(600,800));
+end;
+
+begin
+  clearDebug();
+  disableSRLLog := True;   //set to false if you want to debug
+  smartShowConsole := False; //this is the black cmd box that open when you start SMART
+  SmartEnableDrawing := True; //allow you to put proggies and stuff
+  getUpdate();
+  initPlayerForm(); //opens the player form
+  runPlayerForm();  //starts the player form
+
+  if not playerForm.isScriptReady then exit();
+
+  declarePlayers();
+  getMap();
+  SPS.setup('General_Draynor_SPS_00', RUNESCAPE_OTHER);
+  setupSRL();
+  if not isLoggedIn() then loginPlayer();
+  mainLoop();
+
+end.

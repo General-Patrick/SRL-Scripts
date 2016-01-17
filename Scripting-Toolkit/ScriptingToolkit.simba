@@ -177,9 +177,15 @@ begin
   //the color stuff
 end;
 
-procedure getMap();
+procedure getMap();   //this procedure checks to see if you have the map downloaded and placed in the correct folder.
+var                   //If not, it automatically downloads it for you :)
+  mapFile: LongInt;
 begin
-  //input sps mapping code here.
+  if fileExists(appPath + 'Includes/SPS/img/runescape_other/(insert map name here.png)') then exit();
+  closeFile(createFile(appPath + 'Includes/SPS/img/runescape_other/(insert map name here.png)'));  //creates the file in the chosen location
+  mapFile := reWriteFile(appPath + 'Includes/SPS/img/runescape_other/(insert map name here.png)', false);   //renames the file to your chosen name
+  writeFileString(mapFile, getPage('insert URL of the SPS map image')); //downloads the map file using the given URL
+  closeFile(mapFile);
 end;
 
 procedure progressReport();  //inspired by and altered progress reports from Ashman88 and The Mayor

@@ -181,7 +181,7 @@ procedure getMap();   //this procedure checks to see if you have the map downloa
 var                   //If not, it automatically downloads it for you :)
   mapFile: LongInt;
 begin
-  if fileExists(appPath + 'Includes/SPS/img/runescape_other/(insert map name here.png)') then exit();
+  if fileExists(appPath + 'Includes/SPS/img/runescape_other/(insert map name here.png)') then exit(); //checks to see if the file exists in the specified folder location
   closeFile(createFile(appPath + 'Includes/SPS/img/runescape_other/(insert map name here.png)'));  //creates the file in the chosen location
   mapFile := reWriteFile(appPath + 'Includes/SPS/img/runescape_other/(insert map name here.png)', false);   //renames the file to your chosen name
   writeFileString(mapFile, getPage('insert URL of the SPS map image')); //downloads the map file using the given URL
@@ -195,6 +195,7 @@ begin
     XP := (ChatBox.GetXP - Round(startXP));   //need to fix this up.
     XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));    //need to fix this up.
     itemCount := Round((itemCount * (3600.0 / (GetTimeRunning / 1000.0))));
+    //profit := getPrice( {Insert Item name here(must be formatted from the rswiki)} );
     profitH := Round(profit * (3600.0 / (GetTimeRunning / 1000.0)));
 
     writeLn('|==========================================|');
@@ -242,6 +243,7 @@ begin
   useBank(bankPre);
   bankScreen.close();
   progressReport();
+  writeln(sps.getPlayerPos());
 end;
 
 begin
@@ -256,6 +258,7 @@ begin
   if not playerForm.isScriptReady then exit();
 
   declarePlayers();
+  SPS.setup('(insert map name here)', RUNESCAPE_OTHER);
   setupSRL();
   if not isLoggedIn() then loginPlayer();
   mainLoop();

@@ -21,13 +21,14 @@ var
 
   {*DTMs*}
   rawShrimpsDTM, rawAnchoviesDTM: integer;
+  dtmArr:array [0..1] of integer;
 
   {*SPS Mapping*}
   pathWalk: TPointArray;
   place: integer;
 
   {*Get price*}
-  shrimpPrice: integer;
+  shrimpPrice, anchovyPrice: integer;
 
 
 const
@@ -180,33 +181,29 @@ end;
 procedure setDTMs
 var
   rawShrimpsDTM, rawAnchoviesDTM: integer;
-begin
-  rawShrimpsDTM := DTMFromString('mvQEAAHiczY1LCoAwEEP9UhGXejvP4ZE8YfFTtWNCs3TZhQOPhCGTmYo0DdjNrIR6aKtdgD8tTQRemQN6AQffgQ2ePcw+8tyxk9kgeHMrE9XLLDsrUAv+d6IHA1iXWal8jPr9dz7nBWWYWXk=');
-  rawAnchoviesDTM := DTMFromString('mvQEAAHiczY3NCoAwDIP9ZSIe9TV38dXH1KmrCcvRowcLHwklTZeqTAc2M6uhAdprl+APK5NBUGaHnsDBDyDCs4fZW547djKbBG8uZbJ6mWVnA1rB/06MYALer0p9x6zff+d1Hjm5WVA=');
+begin         //1st DTM is shrimp. 2nd DTM is anchovy
+  dtmArr := [DTMFromString('mvQEAAHiczY1LCoAwEEP9UhGXejvP4ZE8YfFTtWNCs3TZhQOPhCGTmYo0DdjNrIR6aKtdgD8tTQRemQN6AQffgQ2ePcw+8tyxk9kgeHMrE9XLLDsrUAv+d6IHA1iXWal8jPr9dz7nBWWYWXk='),
+             DTMFromString('mvQEAAHiczY3NCoAwDIP9ZSIe9TV38dXH1KmrCcvRowcLHwklTZeqTAc2M6uhAdprl+APK5NBUGaHnsDBDyDCs4fZW547djKbBG8uZbJ6mWVnA1rB/06MYALer0p9x6zff+d1Hjm5WVA=')];
 end;
 
 function countRawShrimps: integer;
-var
-  rawShrimpsDTM: integer;
 begin
-  rawShrimpsDTM := DTMFromString('mvQEAAHiczY1LCoAwEEP9UhGXejvP4ZE8YfFTtWNCs3TZhQOPhCGTmYo0DdjNrIR6aKtdgD8tTQRemQN6AQffgQ2ePcw+8tyxk9kgeHMrE9XLLDsrUAv+d6IHA1iXWal8jPr9dz7nBWWYWXk=');
-  shrimpCount := tabBackpack.countDtm(rawShrimpsDTM);
+  dtmArr[0] := DTMFromString('mvQEAAHiczY1LCoAwEEP9UhGXejvP4ZE8YfFTtWNCs3TZhQOPhCGTmYo0DdjNrIR6aKtdgD8tTQRemQN6AQffgQ2ePcw+8tyxk9kgeHMrE9XLLDsrUAv+d6IHA1iXWal8jPr9dz7nBWWYWXk=');
+  shrimpCount := tabBackpack.countDtm(dtmArr[0]);
   writeLn('Counted ' + intToStr(shrimpCount) + ' shrimp.');
 end;
 
 function countRawAnchovies: integer;
-var
-  rawAnchoviesDTM: integer;
 begin
-  rawAnchoviesDTM := DTMFromString('mvQEAAHiczY3NCoAwDIP9ZSIe9TV38dXH1KmrCcvRowcLHwklTZeqTAc2M6uhAdprl+APK5NBUGaHnsDBDyDCs4fZW547djKbBG8uZbJ6mWVnA1rB/06MYALer0p9x6zff+d1Hjm5WVA=');
-  anchovyCount := (tabBackpack.countDtm(rawAnchoviesDTM) - shrimpCount);
+  dtmArr[1] := DTMFromString('mvQEAAHiczY3NCoAwDIP9ZSIe9TV38dXH1KmrCcvRowcLHwklTZeqTAc2M6uhAdprl+APK5NBUGaHnsDBDyDCs4fZW547djKbBG8uZbJ6mWVnA1rB/06MYALer0p9x6zff+d1Hjm5WVA=');
+  anchovyCount := (tabBackpack.countDtm(dtmArr[1]) - shrimpCount);
   writeLn('Counted ' + intToStr(anchovyCount) + ' anchovies.');
 end;
 
 procedure clearDTMs;
 begin
-  FreeDTM(rawShrimpsDTM);
-  FreeDTM(rawAnchoviesDTM);
+  freeDTM(dtmArr[0]); //shrimp DTM
+  freeDTM(dtmArr[1]); //anchovy DTM
 end;
 
 procedure walkToPlace(place: Integer);
@@ -252,27 +249,31 @@ end;
 
 procedure progressVariables();
 begin
-    fishCaught := (tabBackpack.countDTM(countRawShrimps) + tabBackpack.countDTM(countRawAnchovies));
+    fishCaught:= 0;
+    currentFishCount := 0;
+    shrimpPrice := getPrice('Raw_shrimps');
+    anchovyPrice := getPrice('Raw_anchovies');
+
+    fishCaught := tabBackpack.count();
     totalFishCaught := fishCaught + currentFishCount;
     currentFishCount := totalFishCaught;
     fishH := Round((fishCaught * (3600.0 / (GetTimeRunning / 1000.0))));
     currentFishCount := totalFishCaught;
     XP := (ChatBox.GetXP - startXP);
     XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));    //need to fix this up.
-    //profit :=
-    //profitH := Round(profit * (3600.0 / (GetTimeRunning / 1000.0)));
+    profit := ((shrimpPrice * shrimpCount) + (anchovyPrice * anchovyCount));
+    profitH := Round(profit * (3600.0 / (GetTimeRunning / 1000.0)));
 end;
 
 procedure progressReport();  //inspired by and altered progress reports from Ashman88 and The Mayor
 begin
     ClearDebug;
     writeLn('|==========================================|');
-    writeLn('|  General Patrick''s Scripting Toolkit v' + toStr(Version) + '|');  //change this to your script's name
-    writeLn('|Time Running: ' + timeRunning + '|');
-    writeLn('|Fish Caught: ' + IntToStr(totalFishCaught) + ' (' + IntToStr(fishH) + ' /hr)' + '|');
-    writeLn('|XP Gained: ' + IntToStr(XP) + ' |');
-    writeLn('|XP p/h: ' + IntToStr(XPH) + ' |');
-    //writeln('| Profit Earned: ' + IntToStr(profit) + '                         |');
+    writeLn('|  General Patrick''s Scripting Toolkit v' + toStr(Version) + '  |');  //change this to your script's name
+    writeLn('|Time Running: ' + timeRunning);
+    writeLn('|Fish Caught: ' + IntToStr(totalFishCaught) + ' (' + IntToStr(fishH) + ' fish/hr)');
+    writeLn('|XP Gained: ' + IntToStr(XP) + ' (' + IntToStr(XPH) + ' xp/hr)');
+    writeLn('|Profit: ' + IntToStr(profit) + ' (' + IntToStr(profitH) + ' gp/hr)');
     writeLn('|==========================================|');
 end;
 
@@ -309,7 +310,12 @@ procedure mainLoop();
 begin
   if not isLoggedIn() then
     loginPlayer();
+  countRawShrimps();
+  countRawAnchovies();
+  progressVariables();
   progressReport();
+  freeDTM(dtmArr[0]);
+  freeDTM(dtmArr[1]);
   //wait(randomRange(600,800));
   {walkToPlace(1);
   wait(randomRange(600,800));
@@ -331,8 +337,6 @@ begin
   declarePlayers();
   getMap();
   SPS.setup('General_Draynor_SPS_00', RUNESCAPE_OTHER);
-  fishCaught:= 0;
-  currentFishCount := 0;
   setupSRL();
   if not isLoggedIn() then loginPlayer();
   startXP := chatBox.getXP;

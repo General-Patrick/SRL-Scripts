@@ -4,28 +4,31 @@ program ScriptingToolkit;
 {$i sps/lib/sps-rs3.simba}
 {$i srl-6/lib/misc/srlplayerform.simba}
 
-//to do list : color Setup, progress report, DTMs, more antiban
+//to do list : debug progress report,debug  DTMs, add break
 
 var
   {*Declare Players*}
-  i, bankNum, bankPre: integer;
+  i, bankNum, botLength, breakLength: integer;
 
   {*Progress Report*}
-  profit, fishCaught, totalFishCaught, fishH, XP, XPH, startXP, profitH: integer;
+  profit, totalProfit, currentProfit, profitH, fishCaught, totalFishCaught, currentFishCount, fishH, XP, XPH, startXP: integer;
 
   (*Fish Counter*)
-  fishCount, fishCountH, shrimpCount, anchovyCount, currentFishCount: integer;
+  fishCount, fishCountH, shrimpCount, anchovyCount: integer;
 
-  {*Antiban*}
-  x, y: integer;
+  {*Find Fishing Spot*}
+  fishFail: integer;
+  currentSpot:TBox;
+
+  {*Antiban & Breaks*}
+  x, y, breakNumber: integer;
+  breakTimer: TTimeMarker;
 
   {*DTMs*}
-  rawShrimpsDTM, rawAnchoviesDTM: integer;
   dtmArr:array [0..1] of integer;
 
   {*SPS Mapping*}
   pathWalk: TPointArray;
-  place: integer;
 
   {*Get price*}
   shrimpPrice, anchovyPrice: integer;
@@ -87,6 +90,118 @@ begin
   writeLn('Grabbed the price of ' + theItem + ' (' + thePrice + ') in ' + toStr(t.getTime()) + ' ms.');
 end;
 
+procedure antiBan();   //personally think this is a little to basic.Eventually, I'll make it more "interesting."
+begin
+  if not isLoggedin() then exit;
+
+  case random(100) of //change the number to affect how frequent you want antiban to occr. 100 is recommended (10% change of antiban).
+  0..2:BoredHuman(True);
+  3..4:hoverSkill(SKILL_FISHING);                                       //these are the antibans actions. you can change how frequent you
+  5..6:hoverRandomSkill();                                              //want one function to occur.
+  7..8:mouseOffClient(OFF_CLIENT_RANDOM, randomRange(3000, 8000));
+  9..10:sleepAndMoveMouse(1500 + random(1500));
+  end;
+end;
+
+function findFish(): boolean;
+var
+  x,y,i : Integer;
+  spotTPA : TPointArray;
+  spotATPA : T2DPointArray;
+  uniquePoint : TPoint;
+begin
+
+  if not isLoggedIn() then
+      exit();
+
+  findColorsSpiralTolerance(x, y, spotTPA, 15521733, mainScreen.getBounds(), 10, colorSetting(2, 0.22, 1.13));
+  if (Length(spotTPA) < 1) then
+  begin
+    WriteLn('Failed to find fish colors');
+    Exit;
+  end;
+
+  spotATPA := spotTPA.toATPA(60,60);
+
+  FilterTPAsBetween(spotATPA, 50, 1000);
+
+  spotATPA.sortFromMidPoint(Point(286, 201));
+
+  for i := 0 to high(spotATPA) do
+  begin
+
+    if not isLoggedIn() then
+      exit();
+
+
+    mouse(middleTPA(spotATPA[i]).x + random(8), middleTPA(spotATPA[i]).y + random(8) , MOUSE_MOVE);
+      if isMouseOverText(['ishing']) then
+      begin
+        fastClick(MOUSE_LEFT);
+        smartImage.clear();
+        wait (randomrange(1250,1500));
+        exit(true);
+      end;
+  end;
+  exit(false);
+end;
+
+function isStillFishing:boolean;
+var
+  startCount, i:integer;
+begin
+ if (not isLoggedIn()) then
+  exit;
+
+  minimap.waitPlayerMoving(); //to compensate for the sometimes-long walks between fishing spots,
+                              //during which isStillFishing could possibly return false
+  startCount := tabBackpack.count();
+  for i := 0 to (randomRange(8, 16)) do
+  begin
+  if tabBackpack.isFull() then
+  exit(false);
+  wait(randomRange(800, 1200));
+  end;
+  if (tabBackpack.count() <> startCount) then
+  begin
+  result := true;
+  end
+  else
+  result := false;
+end;
+
+function startFishing(): boolean;
+begin
+  repeat
+
+  if not isLoggedIn() then
+      exit();
+
+  if tabBackpack.isFull() then
+    exit();
+
+    if findFish then
+    begin
+      if isStillFishing() then
+      begin
+        wait(randomRange(750, 2500));
+
+        repeat
+          antiBan();
+          wait(randomRange(750, 5000));
+        until(not isStillFishing);
+        exit(true);
+      end;
+    end else
+    begin
+      wait(randomRange(250, 750));
+      inc(fishFail);
+      writeln('Number of times failed finding Fishing Spot: ', fishFail);
+    end;
+    until(fishFail > 1);
+    exit(false);
+end;
+
 procedure getUpdate();   //credit goes to GetHyper for his code and awesome guide!
 var
   newFile: Integer;
@@ -122,25 +237,12 @@ begin
   checkBoxLabels := ['Save SRL Log', 'Logout when JMod is nearby']; //the labels for your check mark boxes
   checkBoxDefaults := ['True', 'True'];       //the default setting of the check mark box
   checkBoxHints := ['Do you want to save SRL debug to a log file (recommended)?', 'Do you want to logout when a JMod is nearby?'];  //the info about the box
-
-  comboBoxLabels := ['Bank Preset'];
-  comboBoxDefaults := ['1'];
-  playerForm.comboBoxHints := ['Which preset do you want to use?'];
-
-  setLength(comboBoxItems, length(comboBoxLabels));
-  playerForm.comboBoxItems[0] := ['1', '2'];
-
-  {
-  comboBoxItems[1] := ['a', 'b'];    //another one
-  comboBoxItems[2] := ['c', 'd'];    //and another one
-  }
-
  end;
 end;
 
 procedure declarePlayers();
 var
-  botLength, breakLength, world: integer;
+  world: integer;
   debugLog: boolean;
 begin
   players.setup(playerForm.players);
@@ -150,21 +252,20 @@ begin
     with players[i] do
     begin
 
-      botLength := strToInt(playerForm.players[i].settings[0]); //bot length before breaking
-      breakLength := strToInt(playerForm.players[i].settings[1]); //break duration
+      botLength := strToInt(playerForm.players[i].settings[0]) * 60000; //bot length before breaking
+      breakLength := strToInt(playerForm.players[i].settings[1]) * 60000; //break duration
       world := strToInt(playerForm.players[i].settings[2]); //preferred world
       bankNum := strToInt(playerForm.players[i].settings[3]); //your bank pin
 
       debugLog := strToBool(playerForm.players[i].settings[4]); //debug Log
       findMod := strToBool(playerForm.players[i].settings[5]); //find mods
-
-      bankPre := strToInt(playerForm.players[i].settings[6]); //bank preset
   end;
 end;
 
 procedure loginPlayer();
 begin
   players[currentPlayer].login();          //login the selected player
+  wait(randomRange(4000, 6000));
   minimap.clickCompass();                  //click on the compass
   wait(randomRange(4000, 6000));           //lets runescape load properly
   mainscreen.setAngle(MS_ANGLE_HIGH);      //puts the perspective at highest angle
@@ -178,32 +279,45 @@ begin
     gameTabs.openTab(TAB_BACKPACK);
 end;
 
-procedure setDTMs
+procedure takeBreak();
 var
-  rawShrimpsDTM, rawAnchoviesDTM: integer;
-begin         //1st DTM is shrimp. 2nd DTM is anchovy
-  dtmArr := [DTMFromString('mvQEAAHiczY1LCoAwEEP9UhGXejvP4ZE8YfFTtWNCs3TZhQOPhCGTmYo0DdjNrIR6aKtdgD8tTQRemQN6AQffgQ2ePcw+8tyxk9kgeHMrE9XLLDsrUAv+d6IHA1iXWal8jPr9dz7nBWWYWXk='),
-             DTMFromString('mvQEAAHiczY3NCoAwDIP9ZSIe9TV38dXH1KmrCcvRowcLHwklTZeqTAc2M6uhAdprl+APK5NBUGaHnsDBDyDCs4fZW547djKbBG8uZbJ6mWVnA1rB/06MYALer0p9x6zff+d1Hjm5WVA=')];
+  breakTime: integer;
+begin
+  if (botLength < players[currentPlayer].worked.getTime()) then
+  begin
+    breakTime := round(breakLength * 0.1);
+    breakTime := breakLength + random(-breakTime, breakTime);
+
+    players[currentPlayer].exitToLobby();
+    mouseOffClient(OFF_CLIENT_RANDOM);
+
+    writeln('Taking a break for ' + msToTime(breakTime, TIME_FORMAL));
+
+    sleep(breakTime);
+    loginPlayer();
+    BreakTimer.start;
+    inc(breakNumber);
+    writeln('Break ended. Next break in ' + msToTime(botLength, TIME_FORMAL));
+  end;
 end;
 
-function countRawShrimps: integer;
+procedure initDtms(); //these DTMS were generously generated (hah!) by Clarity's Item DTM Generator
+begin         //1st is raw shrimp. 2nd is raw anchovies
+  dtmArr := [DTMFromString('m1gAAAHic42KAABYg/vr///8fUAwSY4PKfQPyWZHYP4H4NxD//Q8BjEBxZiBmB2IuIF5WFgMkmQhiESDJSEWMAADkjCWG'),
+             DTMFromString('m1gAAAHic42KAABYg/vr///8fUAwSY4PKfQPyWZHYP4H4NxD//Q8BjEBxZiBmB2IuIM7LKwaSTASxCJBkpCJGAADPlCVd')];
+  writeLn('DTMs have been initalized.');
+end;
+
+function countRawShrimps(): integer;
 begin
-  dtmArr[0] := DTMFromString('mvQEAAHiczY1LCoAwEEP9UhGXejvP4ZE8YfFTtWNCs3TZhQOPhCGTmYo0DdjNrIR6aKtdgD8tTQRemQN6AQffgQ2ePcw+8tyxk9kgeHMrE9XLLDsrUAv+d6IHA1iXWal8jPr9dz7nBWWYWXk=');
-  shrimpCount := tabBackpack.countDtm(dtmArr[0]);
+  shrimpCount := tabBackpack.countDTM(dtmArr[0]);
   writeLn('Counted ' + intToStr(shrimpCount) + ' shrimp.');
 end;
 
-function countRawAnchovies: integer;
+function countRawAnchovies(): integer;
 begin
-  dtmArr[1] := DTMFromString('mvQEAAHiczY3NCoAwDIP9ZSIe9TV38dXH1KmrCcvRowcLHwklTZeqTAc2M6uhAdprl+APK5NBUGaHnsDBDyDCs4fZW547djKbBG8uZbJ6mWVnA1rB/06MYALer0p9x6zff+d1Hjm5WVA=');
   anchovyCount := (tabBackpack.countDtm(dtmArr[1]) - shrimpCount);
   writeLn('Counted ' + intToStr(anchovyCount) + ' anchovies.');
-end;
-
-procedure clearDTMs;
-begin
-  freeDTM(dtmArr[0]); //shrimp DTM
-  freeDTM(dtmArr[1]); //anchovy DTM
 end;
 
 procedure walkToPlace(place: Integer);
@@ -214,14 +328,12 @@ begin
     begin
      // pathWalk := [Point(170, 118), Point(150, 178)]; //Walk to Fishing Spot
       pathWalk := [Point(170 + randomRange(-5, 5), 118 + randomRange(-5, 5)), Point(150 + randomRange(-5, 5), 178 + randomRange(-5, 5))]; //walk to fishing stpo
-      clearDebug();
       writeLn('Walking to Fishing Spot');
     end;
     2:
     begin
       //pathWalk := [Point(150, 178), Point(170, 118)]; //Walk to Bank
       pathWalk := [Point(150 + randomRange(-5, 5), 178 + randomRange(-5, 5)), Point(170 + randomRange(-5, 5), 118 + randomRange(-5, 5))]; //Walk to Bank
-      clearDebug();
       writeLn('Walking to Bank');
     end;
   end;
@@ -231,9 +343,12 @@ begin
   wait(randomRange(800,1000));
 end;
 
-procedure colorSetup();
+procedure waitWhileFishing();        //does antiban while fishing
 begin
-  //the color stuff
+ if not isLoggedIn() then
+  exit;
+ while isStillFishing do
+   antiBan();
 end;
 
 procedure getMap();   //this procedure checks to see if you have the map downloaded and placed in the correct folder.
@@ -249,10 +364,8 @@ end;
 
 procedure progressVariables();
 begin
-    fishCaught:= 0;
-    currentFishCount := 0;
-    shrimpPrice := getPrice('Raw_shrimps');
-    anchovyPrice := getPrice('Raw_anchovies');
+    countRawShrimps();
+    countRawAnchovies();
 
     fishCaught := tabBackpack.count();
     totalFishCaught := fishCaught + currentFishCount;
@@ -260,8 +373,10 @@ begin
     fishH := Round((fishCaught * (3600.0 / (GetTimeRunning / 1000.0))));
     currentFishCount := totalFishCaught;
     XP := (ChatBox.GetXP - startXP);
-    XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));    //need to fix this up.
+    XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));
     profit := ((shrimpPrice * shrimpCount) + (anchovyPrice * anchovyCount));
+    totalProfit := profit + currentProfit;
+    currentProfit := totalProfit;
     profitH := Round(profit * (3600.0 / (GetTimeRunning / 1000.0)));
 end;
 
@@ -273,59 +388,16 @@ begin
     writeLn('|Time Running: ' + timeRunning);
     writeLn('|Fish Caught: ' + IntToStr(totalFishCaught) + ' (' + IntToStr(fishH) + ' fish/hr)');
     writeLn('|XP Gained: ' + IntToStr(XP) + ' (' + IntToStr(XPH) + ' xp/hr)');
-    writeLn('|Profit: ' + IntToStr(profit) + ' (' + IntToStr(profitH) + ' gp/hr)');
+    writeLn('|Profit: ' + IntToStr(totalProfit) + ' (' + IntToStr(profitH) + ' gp/hr)');
+    writeLn('|Breaks Done: ' + IntToStr(breakNumber));
+    writeln('|Next Break In ' + msToTime((botLength - players[currentPlayer].worked.getTime()), TIME_FORMAL));
     writeLn('|==========================================|');
 end;
 
-procedure useBank(thePreset: Integer);
-begin
-  if not isLoggedIn() then exit;
-
-  bankScreen.open(BANK_NPC_DRAYNOR);
-  wait(gaussRangeInt(1200, 1800));
-  useBank(bankPre)
-
-  if pinScreen.isOpen() then pinScreen.enter(intToStr(bankNum));
-
-  case thePreset of
-    1:bankScreen.clickButton(BANK_BUTTON_PRESET_1);
-    2:bankScreen.clickButton(BANK_BUTTON_PRESET_2);
-  end;
-end;
-
-procedure antiBan();   //personally think this is a little to basic.Eventually, I'll make it more "interesting."
-begin
-  if not isLoggedin() then exit;
-
-  case random(200) of //change the number to affect how frequent you want antiban to occr. 200 is recommended (5% change of antiban).
-  0..2:BoredHuman(True);
-  3..4:hoverSkill(SKILL_FISHING);                                       //these are the antibans actions. you can change how frequent you
-  5..6:hoverRandomSkill();                                              //want one function to occur.
-  7..8:mouseOffClient(OFF_CLIENT_RANDOM, randomRange(3000, 8000));
-  9..10:sleepAndMoveMouse(1500 + random(1500));
-  end;
-end;
-
-procedure mainLoop();
-begin
-  if not isLoggedIn() then
-    loginPlayer();
-  countRawShrimps();
-  countRawAnchovies();
-  progressVariables();
-  progressReport();
-  freeDTM(dtmArr[0]);
-  freeDTM(dtmArr[1]);
-  //wait(randomRange(600,800));
-  {walkToPlace(1);
-  wait(randomRange(600,800));
-  walkToPlace(2);
-  wait(randomRange(600,800)); }
-end;
-
+procedure initScript();
 begin
   clearDebug();
-  disableSRLLog := True;   //set to false if you want to debug
+  disableSRLLog := True;
   smartShowConsole := False; //this is the black cmd box that open when you start SMART
   SmartEnableDrawing := True; //allow you to put proggies and stuff
   getUpdate();
@@ -337,9 +409,62 @@ begin
   declarePlayers();
   getMap();
   SPS.setup('General_Draynor_SPS_00', RUNESCAPE_OTHER);
+
+
+  shrimpPrice := getPrice('Raw_shrimps');
+  anchovyPrice := getPrice('Raw_anchovies');
+
   setupSRL();
   if not isLoggedIn() then loginPlayer();
   startXP := chatBox.getXP;
-  mainLoop();
+  initDtms();
+end;
 
+procedure mainLoop();
+begin
+  if not isLoggedIn() then
+    loginPlayer();
+  wait(randomRange(600,800));
+
+  progressVariables();
+  progressReport();
+
+  walkToPlace(1);
+
+  repeat
+      if not isLoggedIn then
+        exit();
+      startFishing();
+  until(tabBackpack.isFull);
+
+  progressVariables();
+  progressReport();
+  takeBreak();
+  wait(randomRange(600,800));
+
+  walkToPlace(2);
+  wait(randomRange(600,800));
+
+  bankScreen.open(BANK_NPC_DRAYNOR);
+  wait(randomRange(600,800));
+  if pinScreen.isOpen() then pinScreen.enter(intToStr(bankNum));
+  bankScreen.quickDeposit(QUICK_DEPOSIT_INVENTORY);
+  bankScreen.close();
+
+end;
+
+begin
+  initScript();
+
+  takeBreak();
+
+  if not isLoggedIn then
+    loginPlayer();
+
+  repeat
+    mainLoop();
+  until (players.getActive() < 1);
+  terminateScript();
+  freeDTM(dtmArr[0]);
+  freeDTM(dtmArr[1]);
 end.

@@ -3,8 +3,10 @@ program ScriptingToolkit;
 {$i srl-6/srl.simba}
 {$i sps/lib/sps-rs3.simba}
 {$i srl-6/lib/misc/srlplayerform.simba}
+//{$i srl-6/lib/misc/grats_stats.simba} //modified grats stats. I havn't officially implemented it. For now, don't do anything with it.
 
-//to do list : bugfix failsafe frequency, work on lines 166-172, add smart proggy, fix up formatting
+//to do list : bugfix failsafe frequency, work on lines 166-172, add smart proggy, fix up formatting, add multiplayer support
+//note: failsafe currently disabled until further notice. Until re-enabled, start at Draynor Bank or Draynor Fishing Spot.
 
 var
   {*Declare Players*}
@@ -38,6 +40,17 @@ var
 const
   Version = 1.1;          //the version of this script. keep for the getUpdate procedure.
 
+procedure getStats();   //this procedure checks to see if you have the map downloaded and placed in the correct folder.
+var                   //If not, it automatically downloads it for you :)
+  mapFile: LongInt;
+begin
+  if fileExists(appPath + 'Includes/srl-6/lib/misc/grats_stats.simba') then exit(); //checks to see if the file exists in the specified folder location
+  closeFile(createFile(appPath + 'Includes/SPS/img/runescape_other/General_Draynor_SPS_02.png'));  //creates the file in the chosen location
+  mapFile := reWriteFile(appPath + 'Includes/SPS/img/runescape_other/General_Draynor_SPS_02.png', false);   //renames the file to your chosen name
+  writeFileString(mapFile, getPage('http://i.imgur.com/9E0CfLh.png')); //downloads the map file using the given URL
+  closeFile(mapFile);
+end;
+
 procedure antiBan();   //personally think this is a little to basic.Eventually, I'll make it more "interesting."
 begin
   if not isLoggedin() then exit;
@@ -58,21 +71,21 @@ begin
     1:
       begin
         //pathWalk := [Point(210, 351), Point(190, 411)];
-        pathWalk := [Point(210 + randomRange(-5, 5), 351 + randomRange(-5, 5)), Point(190 + randomRange(-5, 5), 411 + randomRange(-5, 5))];
+        pathWalk := [Point(210, 351).rand(5), Point(190, 411).rand(5)];
         writeLn('Walking to Fishing Spot');
       end;
     2:
       begin
         //pathWalk := [Point(190, 411), Point(210, 351)];
-        pathWalk := [Point(190 + randomRange(-5, 5), 411 + randomRange(-5, 5)), Point(210 + randomRange(-5, 5), 351 + randomRange(-5, 5))];
+        pathWalk := [Point(190, 411).rand(5), Point(210, 351).rand(5)];
         writeLn('Walking to Bank');
       end;
     3:
       begin
         //pathWalk := [Point(266, 138), Point(265, 204), Point(261, 264), Point(228, 301), Point(229, 327), Point(210, 351)];
-        pathWalk := [Point(266 + randomRange(-5, 5), 138 + randomRange(-5, 5)), Point(265 + randomRange(-5, 5), 204 + randomRange(-5, 5)),
-                     Point(261 + randomRange(-5, 5), 264 + randomRange(-5, 5)), Point(228 + randomRange(-5, 5), 301 + randomRange(-5, 5)),
-                     Point(229 + randomRange(-5, 5), 327 + randomRange(-5, 5)), Point(210 + randomRange(-5, 5), 351 + randomRange(-5, 5))];
+        pathWalk := [Point(266, 138).rand(5), Point(265, 204).rand(5),
+                     Point(261, 264).rand(5), Point(228, 301).rand(5),
+                     Point(229, 327).rand(5), Point(210, 351).rand(5)];
         writeLn('Walking to Bank');
       end;
   end;
@@ -119,14 +132,14 @@ begin
   with playerForm do //allows you to not have to write playerForm.(insert command here). Eg: you can simply name instead of playerForm.name.
   begin
 
-  scriptHelpThread := 'https://villavu.com/forum/showthread.php?t=115400'; //if you want to link  back to the forum post concerning the script, change the https url.
-  name := 'Scripting Toolkit v' +toStr(Version);     // here you can change the name of your script in the playerform
+  scriptHelpThread := 'https://villavu.com/forum/showthread.php?t=115451'; //if you want to link  back to the forum post concerning the script, change the https url.
+  name := 'General Draynor Fisher v' +toStr(Version);     // here you can change the name of your script in the playerform
 
   editBoxLabels := ['Break after', 'Break for', 'World', 'Bank Pin']; //Here is where you can change the name of the items in the script
   editBoxDefaults := ['60', '5', '-1', '0000'];    //here you can set the default values of the boxes
   editBoxHints := ['How long do you want to bot before a break?', 'How long do you want to break?', 'which world do you want to login to?', 'What is your Bank Pin?'];    //here you can add a description of the box
 
-  checkBoxLabels := ['Show SRL Debug', 'Logout when JMod is nearby', 'Enable Smart Progress Report']; //the labels for your check mark boxes
+  checkBoxLabels := ['Show SRL Debug', 'Logout when JMod is nearby', 'Enable Smart Progress Report(is not working atm)']; //the labels for your check mark boxes
   checkBoxDefaults := ['True',  'True', 'True'];       //the default setting of the check mark box
   checkBoxHints := ['Do you want to show the SRl Debug?', 'Do you want to logout when a JMod is nearby?', 'Do you want to enablet he SMART progress report that appears on the game screen? (currently not setup).'];  //the info about the box
  end;
@@ -163,7 +176,7 @@ begin
   mainscreen.setAngle(MS_ANGLE_HIGH);      //puts the perspective at highest angle
   exitTreasure();                          //closes the daily treasure chest
   closePopup();                            //close any popups
-  mainScreen.setZoom(true);                //allow zooming
+  mainScreen.setZoom(true);                //zooms out the screen
   startXP := chatbox.getXPBar();
   players[currentPlayer].FindMod := False;
   conversationBox.continue(True, True);    //optional, but useful if in a role-play world
@@ -231,8 +244,6 @@ begin
 
     shrimpCount := tabBackpack.countDTM(dtmArr[0]);
     anchovyCount := (tabBackpack.countDtm(dtmArr[1]) - shrimpCount);
-    //freeDTM(dtmArr[0]); havn't tested dtm freeing yet.
-    //freeDTM(dtmArr[1]);
 
     fishCaught := tabBackpack.count();
     totalFishCaught := fishCaught + currentFishCount;
@@ -301,23 +312,13 @@ begin
   exit(false);
 end;
 
-function isStillFishing:boolean;   //credits goes to Keep Booting's isStillFishing function. :)
+function isStillFishing:boolean;         //thanks to TSN for improving the code.
 var
-  startCount, i:integer;
+  startCount:integer;
 begin
- if (not isLoggedIn()) then
-  exit;
-
-  minimap.waitPlayerMoving(); //to compensate for the sometimes-long walks between fishing spots,
-                              //during which isStillFishing could possibly return false
   startCount := tabBackpack.count();
-  for i := 0 to (randomRange(8, 16)) do
-  begin
-  if tabBackpack.isFull() then
-  exit(false);
-  wait(randomRange(800, 1200));
-  end;
-  if (tabBackpack.count() <> startCount) then
+  wait(randomRange(2000, 4000));
+  if (tabBackpack.count <> startCount) then
   begin
   result := true;
   end
@@ -334,6 +335,10 @@ begin
 
   if tabBackpack.isFull() then
     exit();
+
+  minimap.setAngle(MM_DIRECTION_WEST);
+  wait(randomRange(750, 1000));
+  mainscreen.setAngle(MS_ANGLE_HIGH);
 
     if findFish then
     begin
@@ -353,17 +358,9 @@ begin
       inc(fishFail);
       writeln('Number of times failed finding Fishing Spot: ', fishFail);
     end;
-    until(fishFail >1);
-    failSafeWalk();
+    until(fishFail >2);
+    //failSafeWalk();     //Disabled until further notice.
     exit(false);
-end;
-
-procedure waitWhileFishing();        //does antiban while fishing
-begin
- if not isLoggedIn() then
-  exit;
- while isStillFishing do
-   antiBan();
 end;
 
 procedure initScript();
@@ -392,7 +389,7 @@ begin
   if not isLoggedIn() then loginPlayer();
   startXP := chatBox.getXPBar;
   initDtms();
-  Addonterminate('clearDtms()');
+  addonTerminate('clearDtms');
 end;
 
 procedure mainLoop();
@@ -415,12 +412,17 @@ begin
 
   walkToPlace(2);
   wait(randomRange(600,800));
+  bankScreen.open(BANK_NPC_DRAYNOR)
+  if bankScreen.open(BANK_NPC_DRAYNOR) then
+    begin                                              //this section was brought to you buy TSN. :)
+      if pinScreen.isOpen()
+        then pinScreen.enter(intToStr(bankNum));
 
-  bankScreen.open(BANK_NPC_DRAYNOR);
-  wait(randomRange(600,800));
-  if pinScreen.isOpen() then pinScreen.enter(intToStr(bankNum));
-  bankScreen.quickDeposit(QUICK_DEPOSIT_INVENTORY);
-  bankScreen.close();
+      if bankScreen.getPackCount() > 0 then
+        bankScreen.quickDeposit(QUICK_DEPOSIT_INVENTORY);
+
+      bankScreen.close();
+    end;
   takeBreak();
 end;
 

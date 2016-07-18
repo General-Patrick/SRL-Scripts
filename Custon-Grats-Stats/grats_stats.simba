@@ -4,6 +4,7 @@ Stats
 =====
 }
 
+
 Const
   stats_Path = AppPath+'Stats\';
   stats_File = 'Info.txt';
@@ -39,6 +40,12 @@ begin
   begin
     case MessageBox('No Stats ID found, would you like to register?','Stats',1) of
       1: openWebPage('http://stats.grats.pw/reg.php');
+      2:
+        begin
+         case MessageBox('If you have registered, do you want to watch a tutorial to properly setup Grats Stats?','Stats',1) of
+          1: openWebPage('https://www.youtube.com/watch?v=MY9RcWNZ1MM');
+          end;
+        end;
     end;
   end;
 

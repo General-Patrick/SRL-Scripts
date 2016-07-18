@@ -3,10 +3,10 @@ program ScriptingToolkit;
 {$i srl-6/srl.simba}
 {$i sps/lib/sps-rs3.simba}
 {$i srl-6/lib/misc/srlplayerform.simba}
-{$i srl-6/lib/misc/grats_stats.simba}
+//{$i srl-6/lib/misc/grats_stats.simba} //modified grats stats. I havn't officially implemented it. For now, don't do anything with it.
 
-//to do list : bugfix failsafe frequency & progressreport frequency, work on lines 166-172, add smart proggy, fix up formatting, add multiplayer support
-//note: failsafe & stats disabled until further notice. Until re-enabled, start at Draynor Bank or Draynor Fishing Spot.
+//to do list : bugfix failsafe frequency, work on lines 166-172, add smart proggy, fix up formatting, add multiplayer support
+//note: failsafe currently disabled until further notice. Until re-enabled, start at Draynor Bank or Draynor Fishing Spot.
 
 var
   {*Declare Players*}
@@ -14,8 +14,7 @@ var
   debugLog, smartProgress: boolean;
 
   {*Progress Report*}
-  profit, totalProfit, currentProfit, profitH, fishCaught, totalFishCaught, currentFishCount, fishH,
-  XP, XPH, startXP, totalShrimpCaught, totalAnchovyCaught : integer;
+  profit, totalProfit, currentProfit, profitH, fishCaught, totalFishCaught, currentFishCount, fishH, XP, XPH, startXP: integer;
 
   (*Fish Counter*)
   fishCount, fishCountH, shrimpCount, anchovyCount: integer;
@@ -38,9 +37,19 @@ var
   shrimpPrice, anchovyPrice: integer;
 
 
-Const
+const
   Version = 1.1;          //the version of this script. keep for the getUpdate procedure.
 
+procedure getStats();   //this procedure checks to see if you have the map downloaded and placed in the correct folder.
+var                   //If not, it automatically downloads it for you :)
+  mapFile: LongInt;
+begin
+  if fileExists(appPath + 'Includes/srl-6/lib/misc/grats_stats.simba') then exit(); //checks to see if the file exists in the specified folder location
+  closeFile(createFile(appPath + 'Includes/SPS/img/runescape_other/General_Draynor_SPS_02.png'));  //creates the file in the chosen location
+  mapFile := reWriteFile(appPath + 'Includes/SPS/img/runescape_other/General_Draynor_SPS_02.png', false);   //renames the file to your chosen name
+  writeFileString(mapFile, getPage('http://i.imgur.com/9E0CfLh.png')); //downloads the map file using the given URL
+  closeFile(mapFile);
+end;
 
 procedure antiBan();   //personally think this is a little to basic.Eventually, I'll make it more "interesting."
 begin
@@ -62,22 +71,21 @@ begin
     1:
       begin
         //pathWalk := [Point(210, 351), Point(190, 411)];
-        pathWalk := [Point(210 + randomRange(-5, 5), 351 + randomRange(-5, 5)), Point(190 + randomRange(-5, 5), 411 + randomRange(-5, 5))];
+        pathWalk := [Point(210, 351).rand(5), Point(190, 411).rand(5)];
         writeLn('Walking to Fishing Spot');
       end;
     2:
       begin
         //pathWalk := [Point(190, 411), Point(210, 351)];
-        pathWalk := [Point(190 + randomRange(-5, 5), 411 + randomRange(-5, 5)), Point(210 + randomRange(-5, 5), 351 + randomRange(-5, 5))];
+        pathWalk := [Point(190, 411).rand(5), Point(210, 351).rand(5)];
         writeLn('Walking to Bank');
       end;
     3:
       begin
         //pathWalk := [Point(266, 138), Point(265, 204), Point(261, 264), Point(228, 301), Point(229, 327), Point(210, 351)];
-        pathWalk := [Point(266 + randomRange(-5, 5), 138 + randomRange(-5, 5)), Point(265 + randomRange(-5, 5), 204 + randomRange(-5, 5)),
-                     Point(261 + randomRange(-5, 5), 264 + randomRange(-5, 5)), Point(228 + randomRange(-5, 5), 301 + randomRange(-5, 5)),
-                     Point(229 + randomRange(-5, 5), 327 + randomRange(-5, 5)), Point(210 + randomRange(-5, 5), 351 + randomRange(-5, 5))];
-
+        pathWalk := [Point(266, 138).rand(5), Point(265, 204).rand(5),
+                     Point(261, 264).rand(5), Point(228, 301).rand(5),
+                     Point(229, 327).rand(5), Point(210, 351).rand(5)];
         writeLn('Walking to Bank');
       end;
   end;
@@ -124,16 +132,16 @@ begin
   with playerForm do //allows you to not have to write playerForm.(insert command here). Eg: you can simply name instead of playerForm.name.
   begin
 
-    scriptHelpThread := 'https://villavu.com/forum/showthread.php?t=115451'; //if you want to link  back to the forum post concerning the script, change the https url.
-    name := 'General Draynor Fisher v' +toStr(Version);     // here you can change the name of your script in the playerform
+  scriptHelpThread := 'https://villavu.com/forum/showthread.php?t=115451'; //if you want to link  back to the forum post concerning the script, change the https url.
+  name := 'General Draynor Fisher v' +toStr(Version);     // here you can change the name of your script in the playerform
 
-    editBoxLabels := ['Break after', 'Break for', 'World', 'Bank Pin']; //Here is where you can change the name of the items in the script
-    editBoxDefaults := ['60', '5', '-1', '0000'];    //here you can set the default values of the boxes
-    editBoxHints := ['How long do you want to bot before a break?', 'How long do you want to break?', 'which world do you want to login to?', 'What is your Bank Pin?'];    //here you can add a description of the box
+  editBoxLabels := ['Break after', 'Break for', 'World', 'Bank Pin']; //Here is where you can change the name of the items in the script
+  editBoxDefaults := ['60', '5', '-1', '0000'];    //here you can set the default values of the boxes
+  editBoxHints := ['How long do you want to bot before a break?', 'How long do you want to break?', 'which world do you want to login to?', 'What is your Bank Pin?'];    //here you can add a description of the box
 
-    checkBoxLabels := ['Show SRL Debug', 'Logout when JMod is nearby', 'Enable Smart Progress Report(is not working atm)']; //the labels for your check mark boxes
-    checkBoxDefaults := ['True',  'True', 'True'];       //the default setting of the check mark box
-    checkBoxHints := ['Do you want to show the SRl Debug?', 'Do you want to logout when a JMod is nearby?', 'Do you want to enablet he SMART progress report that appears on the game screen? (currently not setup).'];  //the info about the box
+  checkBoxLabels := ['Show SRL Debug', 'Logout when JMod is nearby', 'Enable Smart Progress Report(is not working atm)']; //the labels for your check mark boxes
+  checkBoxDefaults := ['True',  'True', 'True'];       //the default setting of the check mark box
+  checkBoxHints := ['Do you want to show the SRl Debug?', 'Do you want to logout when a JMod is nearby?', 'Do you want to enablet he SMART progress report that appears on the game screen? (currently not setup).'];  //the info about the box
  end;
 end;
 
@@ -173,6 +181,7 @@ begin
   players[currentPlayer].FindMod := False;
   conversationBox.continue(True, True);    //optional, but useful if in a role-play world
   if (not gameTabs.isTabActive(TAB_BACKPACK)) then
+    //gameTabs.openTab(TAB_BACKPACK);   //currently testing if i want this or not. It does the same thing as the line below.
     tabBackpack.open();
 end;
 
@@ -189,17 +198,17 @@ begin
     players[currentPlayer].exitToLobby();
     mouseOffClient(OFF_CLIENT_RANDOM);
 
-    writeln('Taking a break for ' + msToTime(breakTime, TIME_ABBREV));
+    writeln('Taking a break for ' + msToTime(breakTime, TIME_FORMAL));
 
     breakTimer.start;
 
     repeat
       timeLeft := breakTime - breakTimer.getTime();
-      writeLn('Resuming in: ' + msToTime(timeLeft, TIME_ABBREV));
+      writeLn('Resuming in: ' + msToTime(timeLeft, TIME_FORMAL));
       wait(25000 + random(4000));
     until breakTime < breakTimer.getTime();
 
-    writeln('Break ended. Next break in ' + msToTime(botLength, TIME_ABBREV));
+    writeln('Break ended. Next break in ' + msToTime(botLength, TIME_FORMAL));
     if not isLoggedIn then
       loginPlayer();
     inc(breakNumber);
@@ -234,10 +243,7 @@ procedure progressReport();  //inspired by and altered progress reports from Ash
 begin
 
     shrimpCount := tabBackpack.countDTM(dtmArr[0]);
-    totalShrimpCaught := shrimpCount + totalShrimpCaught;
-
     anchovyCount := (tabBackpack.countDtm(dtmArr[1]) - shrimpCount);
-    totalAnchovyCaught := anchovyCount + totalAnchovyCaught;
 
     fishCaught := tabBackpack.count();
     totalFishCaught := fishCaught + currentFishCount;
@@ -246,7 +252,7 @@ begin
     currentFishCount := totalFishCaught;
     XP := (ChatBox.GetXPBar - startXP);
     XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));
-    profit := ((shrimpPrice * shrimpCount) + (anchovyPrice * anchovyCount)); //I think it's good to go?
+    profit := ((shrimpPrice * shrimpCount) + (anchovyPrice * anchovyCount));
     totalProfit := profit + currentProfit;
     currentProfit := totalProfit;
     profitH := Round(currentProfit * (3600.0 / (GetTimeRunning / 1000.0)));
@@ -260,9 +266,8 @@ begin
     writeLn(PadR('|XP Gained: ' + IntToStr(XP) + ' (' + IntToStr(XPH) + ' xp/hr)', 52) + '|');
     writeLn(PadR('|Profit: ' + IntToStr(totalProfit) + ' (' + IntToStr(profitH) + ' gp/hr)', 52) + '|');
     writeLn(PadR('|Breaks Done: ' + IntToStr(breakNumber), 52) + '|');
-    writeLn(PadR('|Next Break In: ' + msToTime((botLength - breakTimer.getTime), TIME_ABBREV), 52) + '|');
+    writeLn(PadR('|Next Break In: ' + msToTime((botLength - breakTimer.getTime), TIME_FORMAL), 52) + '|');
     writeLn('|===================================================|');
-
 end;
 
 function findFish(): boolean;  //slightly modified versino of Shield's findFish function.
@@ -361,17 +366,16 @@ end;
 procedure initScript();
 begin
   clearDebug();
-  initPlayerForm(); //opens the player form
-  runPlayerForm();  //starts the player form
-  if not playerForm.isScriptReady then
-    exit;
   smartShowConsole := False; //this is the black cmd box that open when you start SMART
   SmartEnableDrawing := True;
   getUpdate();
-  stats_Setup('51');
+  initPlayerForm(); //opens the player form
+  runPlayerForm();  //starts the player form
 
+  if not playerForm.isScriptReady then
+    exit();
   declarePlayers();
-  disableSRLDebug := not debugLog;
+  disableSRLDebug := not debugLog ;
 
   getMap();
   SPS.setup('General_Draynor_SPS_02', RUNESCAPE_OTHER);
@@ -399,11 +403,10 @@ begin
 
   repeat
       startFishing();
+      progressReport();
   until(tabBackpack.isFull);
 
   progressReport();
-  writeLn(totalShrimpCaught);
-  writeLn(totalAnchovyCaught);
   wait(randomRange(600,800));
   takeBreak();
 
@@ -420,15 +423,6 @@ begin
 
       bankScreen.close();
     end;
-  progressReport();
-
-  {
-  stats_IncVariable('67', XP);
-  stats_IncVariable('109', currentShrimpCaught);   //i'm currently experimenting with this. DON'T Enable.
-  stats_IncVariable('110', currentAnchovyCaught);
-  stats_commit();
-  }
-
   takeBreak();
 end;
 
@@ -439,7 +433,7 @@ begin
     loginPlayer();
 
   repeat
-    //sps.getPlayerPos();               //player position stuff. You can ignore :3
+    //sps.getPlayerPos();
     //wait(randomRange(1000,2000));
     mainLoop();
   until (players.getActive() < 1);

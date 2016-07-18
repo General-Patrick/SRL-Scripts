@@ -1,0 +1,43 @@
+program GeneralDraynorFisher_Updater;
+{$i srl-6/srl.simba}
+
+Const
+  Version = 0.0;
+
+procedure getStats();   //this procedure checks to see if you have the map downloaded and placed in the correct folder.
+var                   //If not, it automatically downloads it for you :)
+  mapFile: LongInt;
+begin
+  if fileExists(appPath + 'Includes/srl-6/lib/misc/grats_stats.simba') then exit;
+  closeFile(createFile(appPath + 'Includes/srl-6/lib/misc/grats_stats.simba'));  //creates the file in the chosen location
+  mapFile := reWriteFile(appPath + 'Includes/srl-6/lib/misc/grats_stats.simba', false);   //renames the file to your chosen name
+  writeFileString(mapFile, getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/General-Patrick/SRL-Scripts/master/Custon-Grats-Stats/grats_stats.simba')); //downloads the map file using the given URL
+  closeFile(mapFile);
+end;
+
+procedure getUpdate();   //credit goes to GetHyper for his code and awesome guide!
+var
+  newFile: Integer;
+  newVer: Extended;
+begin
+  newVer := strToFloat(getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/General-Patrick/SRL-Scripts/master/General-Draynor-Fisher/version.txt'));
+  printf('Current script Version: %f || Online script Version: %f', [Version, newVer]);
+
+  if newVer > Version then
+  begin
+    printf('Updating (Script Name Here).simba from Version %f to %f', [Version, newVer]);
+    newFile := rewriteFile(scriptPath + 'ScriptingToolkit v' + toStr(newVer) + '.simba', false);
+                                         //change the name here. I recommend you keep the v      //this only thing you would change this the url below starting from https
+    writeFileString(newFile, getPage('http://tomstewart.net/proxy.php?url=https://raw.githubusercontent.com/General-Patrick/SRL-Scripts/master/General-Draynor-Fisher/GeneralDraynorFisher.simba'));
+    closeFile(newFile);
+    print('Please reopen this file');
+    terminateScript();
+  end;
+end;
+
+begin
+  clearDebug();
+  getStats();
+  disableSRLLog := True;
+  getUpdate();
+end.
